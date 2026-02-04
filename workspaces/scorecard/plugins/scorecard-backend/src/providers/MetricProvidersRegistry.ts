@@ -30,47 +30,62 @@ export class MetricProvidersRegistry {
   private readonly datasourceIndex = new Map<string, Set<string>>();
 
   register(metricProvider: MetricProvider): void {
-    const providerId = metricProvider.getProviderId();
     const providerDatasource = metricProvider.getProviderDatasourceId();
-    const metric = metricProvider.getMetric();
     const metricType = metricProvider.getMetricType();
 
-    if (providerId !== metric.id) {
-      throw new Error(
-        `Invalid metric provider with ID ${providerId}, provider ID must match metric ID '${metric.id}'`,
-      );
-    }
+    // Support both single and batch providers
+    const metricIds = metricProvider.getMetricIds?.() ?? [
+      metricProvider.getProviderId(),
+    ];
+    const metrics = metricProvider.getMetrics?.() ?? [
+      metricProvider.getMetric(),
+    ];
 
-    if (metricType !== metric.type) {
-      throw new Error(
-        `Invalid metric provider with ID ${providerId}, getMetricType() must match getMetric().type. Expected '${metricType}', but got '${metric.type}'`,
-      );
-    }
+    // Validate: Each metric ID must have a corresponding metric definition
+    for (const metricId of metricIds) {
+      const metric = metrics.find(m => m.id === metricId);
+      if (!metric) {
+        throw new Error(
+          `Invalid metric provider: metric ID '${metricId}' returned by getMetricIds() ` +
+            `does not have a corresponding metric in getMetrics()`,
+        );
+      }
 
-    const expectedPrefix = `${providerDatasource}.`;
-    if (
-      !providerId.startsWith(expectedPrefix) ||
-      providerId === expectedPrefix
-    ) {
-      throw new Error(
-        `Invalid metric provider with ID ${providerId}, must have format '${providerDatasource}.<metric_name>' where metric name is not empty`,
-      );
-    }
+      // Validate: Metric type must match
+      if (metricType !== metric.type) {
+        throw new Error(
+          `Invalid metric provider with ID ${metricId}, getMetricType() must match ` +
+            `getMetric().type. Expected '${metricType}', but got '${metric.type}'`,
+        );
+      }
 
-    if (this.metricProviders.has(providerId)) {
-      throw new ConflictError(
-        `Metric provider with ID '${providerId}' has already been registered`,
-      );
-    }
+      // Validate: Provider ID format (datasource.metric_name)
+      const expectedPrefix = `${providerDatasource}.`;
+      if (!metricId.startsWith(expectedPrefix) || metricId === expectedPrefix) {
+        throw new Error(
+          `Invalid metric provider with ID ${metricId}, must have format ` +
+            `'${providerDatasource}.<metric_name>' where metric name is not empty`,
+        );
+      }
 
-    this.metricProviders.set(providerId, metricProvider);
+      // Validate: No duplicate IDs
+      if (this.metricProviders.has(metricId)) {
+        throw new ConflictError(
+          `Metric provider with ID '${metricId}' has already been registered`,
+        );
+      }
 
-    let datasourceProviders = this.datasourceIndex.get(providerDatasource);
-    if (!datasourceProviders) {
-      datasourceProviders = new Set();
-      this.datasourceIndex.set(providerDatasource, datasourceProviders);
+      // Register: Each metric ID maps to the same provider instance
+      this.metricProviders.set(metricId, metricProvider);
+
+      // Index by datasource
+      let datasourceProviders = this.datasourceIndex.get(providerDatasource);
+      if (!datasourceProviders) {
+        datasourceProviders = new Set();
+        this.datasourceIndex.set(providerDatasource, datasourceProviders);
+      }
+      datasourceProviders.add(metricId);
     }
-    datasourceProviders.add(providerId);
   }
 
   getProvider(providerId: string): MetricProvider {
@@ -84,7 +99,19 @@ export class MetricProvidersRegistry {
   }
 
   getMetric(providerId: string): Metric {
-    return this.getProvider(providerId).getMetric();
+    const provider = this.getProvider(providerId);
+
+    // For batch providers, find the specific metric by ID
+    if (provider.getMetrics) {
+      const metrics = provider.getMetrics();
+      const metric = metrics.find(m => m.id === providerId);
+      if (metric) {
+        return metric;
+      }
+    }
+
+    // Fall back to single metric
+    return provider.getMetric();
   }
 
   async calculateMetric(
@@ -118,12 +145,38 @@ export class MetricProvidersRegistry {
   listMetrics(providerIds?: string[]): Metric[] {
     if (providerIds && providerIds.length !== 0) {
       return providerIds
-        .map(providerId => this.metricProviders.get(providerId)?.getMetric())
+        .map(providerId => {
+          const provider = this.metricProviders.get(providerId);
+          if (!provider) return undefined;
+
+          // Try batch provider first
+          if (provider.getMetrics) {
+            const metrics = provider.getMetrics();
+            return metrics.find(m => m.id === providerId);
+          }
+
+          // Fall back to single metric
+          return provider.getMetric();
+        })
         .filter((m): m is Metric => m !== undefined);
     }
-    return [...this.metricProviders.values()].map(provider =>
-      provider.getMetric(),
-    );
+
+    // List all metrics from all providers (deduplicate batch providers)
+    const seen = new Set<MetricProvider>();
+    const allMetrics: Metric[] = [];
+
+    for (const provider of this.metricProviders.values()) {
+      if (seen.has(provider)) continue;
+      seen.add(provider);
+
+      if (provider.getMetrics) {
+        allMetrics.push(...provider.getMetrics());
+      } else {
+        allMetrics.push(provider.getMetric());
+      }
+    }
+
+    return allMetrics;
   }
 
   listMetricsByDatasource(datasourceId: string): Metric[] {
@@ -133,9 +186,22 @@ export class MetricProvidersRegistry {
       return [];
     }
 
-    return Array.from(providerIdsOfDatasource)
-      .map(providerId => this.metricProviders.get(providerId))
-      .filter((provider): provider is MetricProvider => provider !== undefined)
-      .map(provider => provider.getMetric());
+    // Deduplicate providers since batch providers have multiple IDs
+    const seen = new Set<MetricProvider>();
+    const allMetrics: Metric[] = [];
+
+    for (const providerId of providerIdsOfDatasource) {
+      const provider = this.metricProviders.get(providerId);
+      if (!provider || seen.has(provider)) continue;
+      seen.add(provider);
+
+      if (provider.getMetrics) {
+        allMetrics.push(...provider.getMetrics());
+      } else {
+        allMetrics.push(provider.getMetric());
+      }
+    }
+
+    return allMetrics;
   }
 }

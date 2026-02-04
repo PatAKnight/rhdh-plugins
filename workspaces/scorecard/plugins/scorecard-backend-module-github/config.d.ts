@@ -22,6 +22,11 @@ export interface Config {
     plugins?: {
       /** Github datasource configuration */
       github?: {
+        /** File existence checks configuration */
+        files?: Array<{
+          /** Key is the metric identifier, value is the file path */
+          [metricId: string]: string;
+        }>;
         open_prs?: {
           thresholds?: {
             rules?: Array<{
