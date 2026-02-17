@@ -77,4 +77,50 @@ export class GithubClient {
 
     return response.repository.pullRequests.totalCount;
   }
+
+  /**
+   * Check if multiple files exist in a repository using a single GraphQL call.
+   * Uses GraphQL aliases to batch multiple object lookups.
+   *
+   * @param url - The GitHub URL for authentication
+   * @param repository - The repository info (owner/repo)
+   * @param files - Map of alias to file path (e.g., { "codeowners": "CODEOWNERS" })
+   * @returns Map of alias to boolean (exists or not)
+   */
+  async checkFilesExist(
+    url: string,
+    repository: GithubRepository,
+    files: Map<string, string>,
+  ): Promise<Map<string, boolean>> {
+    const octokit = await this.getOctokitClient(url);
+
+    // Build dynamic query with aliases
+    const fileChecks = Array.from(files.entries())
+      .map(
+        ([alias, path]) =>
+          `${alias}: object(expression: "HEAD:${path}") { id }`,
+      )
+      .join('\n');
+
+    const query = `
+    query checkFilesExist($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        ${fileChecks}
+      }
+    }
+  `;
+
+    const response = await octokit<{
+      repository: Record<string, { id: string } | null>;
+    }>(query, {
+      owner: repository.owner,
+      repo: repository.repo,
+    });
+
+    const results = new Map<string, boolean>();
+    for (const [alias] of files) {
+      results.set(alias, response.repository[alias] !== null);
+    }
+    return results;
+  }
 }
