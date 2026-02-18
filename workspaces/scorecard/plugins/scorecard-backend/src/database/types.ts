@@ -25,6 +25,8 @@ export type DbMetricValueCreate = {
   timestamp: Date;
   error_message?: string;
   status?: DbMetricValueStatus;
+  entity_kind?: string;
+  entity_owner?: string;
 };
 
 export type DbMetricValue = {
@@ -35,6 +37,8 @@ export type DbMetricValue = {
   timestamp: Date;
   error_message: string | null;
   status: DbMetricValueStatus | null;
+  entity_kind: string | null;
+  entity_owner: string | null;
 };
 
 export type DbAggregatedMetric = {
