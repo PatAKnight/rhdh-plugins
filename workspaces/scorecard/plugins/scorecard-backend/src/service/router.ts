@@ -265,6 +265,7 @@ export async function createRouter({
       const entityMetrics = await catalogMetricService.getEntityMetricDetails(
         entityRefsToQuery,
         metricId,
+        credentials,
         {
           status,
           owner,

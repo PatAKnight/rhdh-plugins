@@ -25,7 +25,11 @@ import {
   mockDatabaseMetricValues,
 } from '../../__fixtures__/mockDatabaseMetricValues';
 import { buildMockMetricProvidersRegistry } from '../../__fixtures__/mockMetricProvidersRegistry';
-import { AuthService, LoggerService } from '@backstage/backend-plugin-api';
+import {
+  AuthService,
+  BackstageCredentials,
+  LoggerService,
+} from '@backstage/backend-plugin-api';
 import * as permissionUtils from '../permissions/permissionUtils';
 import {
   AggregatedMetric,
@@ -572,6 +576,8 @@ describe('CatalogMetricService', () => {
       ],
     };
 
+    let mockCredentials: BackstageCredentials;
+
     beforeEach(() => {
       mockedDatabase.readEntityMetricsByStatus.mockResolvedValue({
         rows: mockMetricRows,
@@ -580,12 +586,14 @@ describe('CatalogMetricService', () => {
 
       mockedCatalog.getEntitiesByRefs.mockReset();
       mockedCatalog.getEntitiesByRefs.mockResolvedValue(mockEntities);
+      mockCredentials = {} as BackstageCredentials;
     });
 
     it('should fetch entity metrics with default options', async () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           page: 1,
           limit: 10,
@@ -606,6 +614,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           page: 1,
           limit: 10,
@@ -624,10 +633,15 @@ describe('CatalogMetricService', () => {
     });
 
     it('should call database with correct pagination parameters', async () => {
-      await service.getEntityMetricDetails([], 'github.important_metric', {
-        page: 2,
-        limit: 5,
-      });
+      await service.getEntityMetricDetails(
+        [],
+        'github.important_metric',
+        mockCredentials,
+        {
+          page: 2,
+          limit: 5,
+        },
+      );
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         [],
@@ -640,11 +654,16 @@ describe('CatalogMetricService', () => {
     });
 
     it('should filter by status at database level', async () => {
-      await service.getEntityMetricDetails([], 'github.important_metric', {
-        status: 'error',
-        page: 1,
-        limit: 10,
-      });
+      await service.getEntityMetricDetails(
+        [],
+        'github.important_metric',
+        mockCredentials,
+        {
+          status: 'error',
+          page: 1,
+          limit: 10,
+        },
+      );
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         [],
@@ -657,11 +676,16 @@ describe('CatalogMetricService', () => {
     });
 
     it('should filter by kind at database level', async () => {
-      await service.getEntityMetricDetails([], 'github.important_metric', {
-        kind: 'Component',
-        page: 1,
-        limit: 10,
-      });
+      await service.getEntityMetricDetails(
+        [],
+        'github.important_metric',
+        mockCredentials,
+        {
+          kind: 'Component',
+          page: 1,
+          limit: 10,
+        },
+      );
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         [],
@@ -674,11 +698,16 @@ describe('CatalogMetricService', () => {
     });
 
     it('should filter by owner at database level', async () => {
-      await service.getEntityMetricDetails([], 'github.important_metric', {
-        owner: 'team:default/platform',
-        page: 1,
-        limit: 10,
-      });
+      await service.getEntityMetricDetails(
+        [],
+        'github.important_metric',
+        mockCredentials,
+        {
+          owner: 'team:default/platform',
+          page: 1,
+          limit: 10,
+        },
+      );
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         [],
@@ -694,6 +723,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           entityName: 'service-a',
           page: 1,
@@ -721,6 +751,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           entityName: 'SERVICE',
           page: 1,
@@ -735,6 +766,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           sortBy: 'entityName',
           sortOrder: 'asc',
@@ -752,6 +784,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           sortBy: 'metricValue',
           sortOrder: 'desc',
@@ -769,6 +802,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           page: 1,
           limit: 10,
@@ -790,6 +824,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           sortBy: 'metricValue',
           sortOrder: 'desc',
@@ -804,10 +839,15 @@ describe('CatalogMetricService', () => {
     });
 
     it('should batch-fetch entities using getEntitiesByRefs', async () => {
-      await service.getEntityMetricDetails([], 'github.important_metric', {
-        page: 1,
-        limit: 10,
-      });
+      await service.getEntityMetricDetails(
+        [],
+        'github.important_metric',
+        mockCredentials,
+        {
+          page: 1,
+          limit: 10,
+        },
+      );
 
       expect(mockedCatalog.getEntitiesByRefs).toHaveBeenCalledWith(
         {
@@ -830,6 +870,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           page: 1,
           limit: 10,
@@ -849,6 +890,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           page: 1,
           limit: 10,
@@ -869,6 +911,7 @@ describe('CatalogMetricService', () => {
       await service.getEntityMetricDetails(
         ['component:default/service-a', 'component:default/service-b'],
         'github.important_metric',
+        mockCredentials,
         { page: 1, limit: 10 },
       );
 
@@ -891,6 +934,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           status: 'error',
           kind: 'Component',
@@ -924,6 +968,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           page: 1,
           limit: 10,
@@ -943,6 +988,7 @@ describe('CatalogMetricService', () => {
       const result = await service.getEntityMetricDetails(
         [],
         'github.important_metric',
+        mockCredentials,
         {
           page: 1,
           limit: 10,
