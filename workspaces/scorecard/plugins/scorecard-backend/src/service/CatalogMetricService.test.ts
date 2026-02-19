@@ -591,7 +591,7 @@ describe('CatalogMetricService', () => {
 
     it('should fetch entity metrics with default options', async () => {
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -612,7 +612,7 @@ describe('CatalogMetricService', () => {
 
     it('should enrich entities with catalog metadata', async () => {
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -634,7 +634,7 @@ describe('CatalogMetricService', () => {
 
     it('should call database with correct pagination parameters', async () => {
       await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -644,7 +644,7 @@ describe('CatalogMetricService', () => {
       );
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
-        [],
+        null,
         'github.important_metric',
         undefined,
         undefined,
@@ -655,7 +655,7 @@ describe('CatalogMetricService', () => {
 
     it('should filter by status at database level', async () => {
       await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -666,7 +666,7 @@ describe('CatalogMetricService', () => {
       );
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
-        [],
+        null,
         'github.important_metric',
         'error',
         undefined,
@@ -677,7 +677,7 @@ describe('CatalogMetricService', () => {
 
     it('should filter by kind at database level', async () => {
       await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -688,7 +688,7 @@ describe('CatalogMetricService', () => {
       );
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
-        [],
+        null,
         'github.important_metric',
         undefined,
         'Component',
@@ -699,7 +699,7 @@ describe('CatalogMetricService', () => {
 
     it('should filter by owner at database level', async () => {
       await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -710,7 +710,7 @@ describe('CatalogMetricService', () => {
       );
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
-        [],
+        null,
         'github.important_metric',
         undefined,
         undefined,
@@ -721,7 +721,7 @@ describe('CatalogMetricService', () => {
 
     it('should filter by entityName at application level', async () => {
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -733,7 +733,7 @@ describe('CatalogMetricService', () => {
 
       // Should fetch all from DB (no pagination)
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
-        [],
+        null,
         'github.important_metric',
         undefined,
         undefined,
@@ -749,7 +749,7 @@ describe('CatalogMetricService', () => {
 
     it('should perform case-insensitive entityName search', async () => {
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -764,7 +764,7 @@ describe('CatalogMetricService', () => {
 
     it('should sort by entityName ascending', async () => {
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -782,7 +782,7 @@ describe('CatalogMetricService', () => {
 
     it('should sort by metricValue descending', async () => {
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -800,7 +800,7 @@ describe('CatalogMetricService', () => {
 
     it('should sort by timestamp descending by default', async () => {
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -822,7 +822,7 @@ describe('CatalogMetricService', () => {
       });
 
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -840,7 +840,7 @@ describe('CatalogMetricService', () => {
 
     it('should batch-fetch entities using getEntitiesByRefs', async () => {
       await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -862,13 +862,14 @@ describe('CatalogMetricService', () => {
       );
     });
 
-    it('should handle missing catalog entities gracefully', async () => {
+    it('should exclude entities that the catalog returns null for (unauthorized)', async () => {
+      // service-b (index 1) returns undefined/null — catalog enforces no access
       mockedCatalog.getEntitiesByRefs.mockResolvedValue({
         items: [mockEntities.items[0], undefined, mockEntities.items[2]],
       });
 
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -877,18 +878,22 @@ describe('CatalogMetricService', () => {
         },
       );
 
-      expect(result.entities[1].entityName).toBe('Unknown');
-      expect(result.entities[1].entityKind).toBe('Component');
-      expect(result.entities[1].owner).toBe('team:default/backend');
+      // service-b is filtered out; only the two authorized entities are returned
+      expect(result.entities).toHaveLength(2);
+      expect(result.entities.map(e => e.entityRef)).not.toContain(
+        'component:default/service-b',
+      );
+      expect(result.entities[0].entityRef).toBe('component:default/service-a');
+      expect(result.entities[1].entityRef).toBe('component:default/service-c');
     });
 
-    it('should handle catalog API failures gracefully', async () => {
+    it('should handle catalog API failures gracefully by falling back to DB metadata', async () => {
       mockedCatalog.getEntitiesByRefs.mockRejectedValue(
         new Error('Catalog API error'),
       );
 
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -902,9 +907,12 @@ describe('CatalogMetricService', () => {
         expect.objectContaining({ error: expect.any(Error) }),
       );
 
-      // Should still return results with fallback data
+      // When catalog is unavailable, all DB rows are returned with fallback metadata
+      // so a transient outage doesn't silently hide all results from the user.
       expect(result.entities).toHaveLength(3);
       expect(result.entities[0].entityName).toBe('Unknown');
+      expect(result.entities[0].entityKind).toBe('Component'); // from DB row.entity_kind
+      expect(result.entities[0].owner).toBe('team:default/platform'); // from DB row.entity_owner
     });
 
     it('should pass entity refs to database query', async () => {
@@ -925,6 +933,44 @@ describe('CatalogMetricService', () => {
       );
     });
 
+    it('should pass null to database for unscoped query (avoids catalog enumeration)', async () => {
+      await service.getEntityMetricDetails(
+        null,
+        'github.important_metric',
+        mockCredentials,
+        { page: 1, limit: 10 },
+      );
+
+      expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
+        null,
+        'github.important_metric',
+        undefined,
+        undefined,
+        undefined,
+        { limit: 10, offset: 0 },
+      );
+    });
+
+    it('should use catalog.getEntitiesByRefs as the sole authorization gate for the unscoped path', async () => {
+      // Simulate catalog returning null for service-b (no access) and real entities for others
+      mockedCatalog.getEntitiesByRefs.mockResolvedValue({
+        items: [mockEntities.items[0], undefined, mockEntities.items[2]],
+      });
+
+      const result = await service.getEntityMetricDetails(
+        null,
+        'github.important_metric',
+        mockCredentials,
+        { page: 1, limit: 10 },
+      );
+
+      // service-b should be filtered out because catalog returned null (unauthorized)
+      expect(result.entities).toHaveLength(2);
+      expect(result.entities.map(e => e.entityRef)).not.toContain(
+        'component:default/service-b',
+      );
+    });
+
     it('should combine filters, sorting, and pagination', async () => {
       mockedDatabase.readEntityMetricsByStatus.mockResolvedValue({
         rows: [mockMetricRows[0]],
@@ -932,7 +978,7 @@ describe('CatalogMetricService', () => {
       });
 
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -947,7 +993,7 @@ describe('CatalogMetricService', () => {
       );
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
-        [],
+        null,
         'github.important_metric',
         'error',
         'Component',
@@ -966,7 +1012,7 @@ describe('CatalogMetricService', () => {
       });
 
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
@@ -986,7 +1032,7 @@ describe('CatalogMetricService', () => {
 
     it('should include metric metadata in response', async () => {
       const result = await service.getEntityMetricDetails(
-        [],
+        null,
         'github.important_metric',
         mockCredentials,
         {
