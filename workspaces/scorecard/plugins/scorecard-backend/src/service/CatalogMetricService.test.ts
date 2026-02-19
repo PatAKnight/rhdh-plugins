@@ -646,6 +646,8 @@ describe('CatalogMetricService', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
         { limit: 5, offset: 5 },
       );
     });
@@ -664,6 +666,8 @@ describe('CatalogMetricService', () => {
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
         'error',
+        undefined,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -688,6 +692,8 @@ describe('CatalogMetricService', () => {
         undefined,
         'Component',
         undefined,
+        undefined,
+        undefined,
         { limit: 10, offset: 0 },
       );
     });
@@ -709,6 +715,8 @@ describe('CatalogMetricService', () => {
         undefined,
         undefined,
         ['team:default/platform'],
+        undefined,
+        undefined,
         { limit: 10, offset: 0 },
       );
     });
@@ -733,6 +741,8 @@ describe('CatalogMetricService', () => {
         'github.important_metric',
         undefined,
         'service-a',
+        undefined,
+        undefined,
         undefined,
         undefined,
         { limit: 10, offset: 0 },
@@ -760,12 +770,14 @@ describe('CatalogMetricService', () => {
         'SERVICE',
         undefined,
         undefined,
+        undefined,
+        undefined,
         { limit: 10, offset: 0 },
       );
     });
 
     it('should sort by entityName ascending', async () => {
-      const result = await service.getEntityMetricDetails(
+      await service.getEntityMetricDetails(
         'github.important_metric',
         mockCredentials,
         {
@@ -776,13 +788,20 @@ describe('CatalogMetricService', () => {
         },
       );
 
-      expect(result.entities[0].entityName).toBe('service-a');
-      expect(result.entities[1].entityName).toBe('service-b');
-      expect(result.entities[2].entityName).toBe('service-c');
+      expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
+        'github.important_metric',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'entityName',
+        'asc',
+        { limit: 10, offset: 0 },
+      );
     });
 
     it('should sort by metricValue descending', async () => {
-      const result = await service.getEntityMetricDetails(
+      await service.getEntityMetricDetails(
         'github.important_metric',
         mockCredentials,
         {
@@ -793,13 +812,20 @@ describe('CatalogMetricService', () => {
         },
       );
 
-      expect(result.entities[0].metricValue).toBe(15);
-      expect(result.entities[1].metricValue).toBe(8);
-      expect(result.entities[2].metricValue).toBe(3);
+      expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
+        'github.important_metric',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'metricValue',
+        'desc',
+        { limit: 10, offset: 0 },
+      );
     });
 
     it('should sort by timestamp descending by default', async () => {
-      const result = await service.getEntityMetricDetails(
+      await service.getEntityMetricDetails(
         'github.important_metric',
         mockCredentials,
         {
@@ -808,10 +834,17 @@ describe('CatalogMetricService', () => {
         },
       );
 
-      // Most recent first
-      expect(result.entities[0].timestamp).toBe('2024-01-15T12:00:00.000Z');
-      expect(result.entities[1].timestamp).toBe('2024-01-15T11:00:00.000Z');
-      expect(result.entities[2].timestamp).toBe('2024-01-15T10:00:00.000Z');
+      // When no sortBy/sortOrder are supplied the DB defaults to timestamp desc
+      expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
+        'github.important_metric',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { limit: 10, offset: 0 },
+      );
     });
 
     it('should handle null metric values in sorting', async () => {
@@ -820,7 +853,7 @@ describe('CatalogMetricService', () => {
         total: 2,
       });
 
-      const result = await service.getEntityMetricDetails(
+      await service.getEntityMetricDetails(
         'github.important_metric',
         mockCredentials,
         {
@@ -831,9 +864,17 @@ describe('CatalogMetricService', () => {
         },
       );
 
-      // Null should be sorted to the end
-      expect(result.entities[0].metricValue).toBe(8);
-      expect(result.entities[1].metricValue).toBe(null);
+      // Null handling (nulls-last) is delegated to the DB via orderByRaw
+      expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
+        'github.important_metric',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'metricValue',
+        'desc',
+        { limit: 10, offset: 0 },
+      );
     });
 
     it('should batch-fetch entities using getEntitiesByRefs', async () => {
@@ -923,6 +964,8 @@ describe('CatalogMetricService', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
         { limit: 10, offset: 0 },
       );
     });
@@ -972,6 +1015,8 @@ describe('CatalogMetricService', () => {
         undefined,
         'Component',
         ['team:default/platform'],
+        'metricValue',
+        'desc',
         { limit: 5, offset: 0 },
       );
 
