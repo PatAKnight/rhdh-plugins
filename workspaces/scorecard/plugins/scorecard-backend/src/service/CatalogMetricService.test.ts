@@ -642,13 +642,7 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        { limit: 5, offset: 5 },
+        { pagination: { limit: 5, offset: 5 } },
       );
     });
 
@@ -665,13 +659,7 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        'error',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        { limit: 10, offset: 0 },
+        { status: 'error', pagination: { limit: 10, offset: 0 } },
       );
     });
 
@@ -688,13 +676,7 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        undefined,
-        'Component',
-        undefined,
-        undefined,
-        undefined,
-        { limit: 10, offset: 0 },
+        { entityKind: 'Component', pagination: { limit: 10, offset: 0 } },
       );
     });
 
@@ -711,13 +693,10 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        undefined,
-        undefined,
-        ['team:default/platform'],
-        undefined,
-        undefined,
-        { limit: 10, offset: 0 },
+        {
+          entityOwner: ['team:default/platform'],
+          pagination: { limit: 10, offset: 0 },
+        },
       );
     });
 
@@ -739,13 +718,7 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        'service-a',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        { limit: 10, offset: 0 },
+        { entityName: 'service-a', pagination: { limit: 10, offset: 0 } },
       );
 
       expect(result.entities).toHaveLength(1);
@@ -766,13 +739,7 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        'SERVICE',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        { limit: 10, offset: 0 },
+        { entityName: 'SERVICE', pagination: { limit: 10, offset: 0 } },
       );
     });
 
@@ -790,13 +757,11 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        'entityName',
-        'asc',
-        { limit: 10, offset: 0 },
+        {
+          sortBy: 'entityName',
+          sortOrder: 'asc',
+          pagination: { limit: 10, offset: 0 },
+        },
       );
     });
 
@@ -814,13 +779,11 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        'metricValue',
-        'desc',
-        { limit: 10, offset: 0 },
+        {
+          sortBy: 'metricValue',
+          sortOrder: 'desc',
+          pagination: { limit: 10, offset: 0 },
+        },
       );
     });
 
@@ -837,13 +800,7 @@ describe('CatalogMetricService', () => {
       // When no sortBy/sortOrder are supplied the DB defaults to timestamp desc
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        { limit: 10, offset: 0 },
+        { pagination: { limit: 10, offset: 0 } },
       );
     });
 
@@ -867,13 +824,11 @@ describe('CatalogMetricService', () => {
       // Null handling (nulls-last) is delegated to the DB via orderByRaw
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        'metricValue',
-        'desc',
-        { limit: 10, offset: 0 },
+        {
+          sortBy: 'metricValue',
+          sortOrder: 'desc',
+          pagination: { limit: 10, offset: 0 },
+        },
       );
     });
 
@@ -924,7 +879,7 @@ describe('CatalogMetricService', () => {
       expect(result.entities[1].entityRef).toBe('component:default/service-c');
     });
 
-    it('should handle catalog API failures gracefully by falling back to DB metadata', async () => {
+    it('should handle catalog API failures by logging an error and not returning information from the database', async () => {
       mockedCatalog.getEntitiesByRefs.mockRejectedValue(
         new Error('Catalog API error'),
       );
@@ -938,17 +893,13 @@ describe('CatalogMetricService', () => {
         },
       );
 
-      expect(mockedLogger.warn).toHaveBeenCalledWith(
+      expect(mockedLogger.error).toHaveBeenCalledWith(
         'Failed to fetch entities from catalog',
         expect.objectContaining({ error: expect.any(Error) }),
       );
 
-      // When catalog is unavailable, all DB rows are returned with fallback metadata
-      // so a transient outage doesn't silently hide all results from the user.
-      expect(result.entities).toHaveLength(3);
-      expect(result.entities[0].entityName).toBe('Unknown');
-      expect(result.entities[0].entityKind).toBe('Component'); // from DB row.entity_kind
-      expect(result.entities[0].owner).toBe('team:default/platform'); // from DB row.entity_owner
+      // When catalog is unavailable, do not bypass and instead log error
+      expect(result.entities).toHaveLength(0);
     });
 
     it('should pass null to database for unscoped query (avoids catalog enumeration)', async () => {
@@ -960,13 +911,7 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        { limit: 10, offset: 0 },
+        { pagination: { limit: 10, offset: 0 } },
       );
     });
 
@@ -1011,13 +956,14 @@ describe('CatalogMetricService', () => {
 
       expect(mockedDatabase.readEntityMetricsByStatus).toHaveBeenCalledWith(
         'github.important_metric',
-        'error',
-        undefined,
-        'Component',
-        ['team:default/platform'],
-        'metricValue',
-        'desc',
-        { limit: 5, offset: 0 },
+        {
+          status: 'error',
+          entityKind: 'Component',
+          entityOwner: ['team:default/platform'],
+          sortBy: 'metricValue',
+          sortOrder: 'desc',
+          pagination: { limit: 5, offset: 0 },
+        },
       );
 
       expect(result.entities).toHaveLength(1);
