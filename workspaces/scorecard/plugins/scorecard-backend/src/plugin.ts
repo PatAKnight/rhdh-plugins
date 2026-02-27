@@ -96,6 +96,7 @@ export const scorecardPlugin = createBackendPlugin({
         const catalogMetricService = new CatalogMetricService({
           catalog,
           auth,
+          permissions,
           registry: metricProvidersRegistry,
           database: dbMetricValues,
           logger: logger,

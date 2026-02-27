@@ -203,6 +203,6 @@ export class PullMetricsByProviderTask implements SchedulerTask {
 
 function normalizeOwner(owner: unknown): string | undefined {
   if (!owner) return undefined;
-  if (typeof owner === 'string') return owner;
-  return JSON.stringify(owner);
+  if (typeof owner === 'string') return owner.toLowerCase();
+  return JSON.stringify(owner).toLowerCase();
 }

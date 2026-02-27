@@ -24,6 +24,7 @@ import { Request } from 'express';
 import { NotAllowedError } from '@backstage/errors';
 import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
 import type {
+  BackstageCredentials,
   HttpAuthService,
   PermissionsService,
 } from '@backstage/backend-plugin-api';
@@ -46,6 +47,24 @@ export const checkEntityAccess = async (
   if (entityAccessDecision[0].result !== AuthorizeResult.ALLOW) {
     throw new NotAllowedError(`Access to "${entityRef}" entity metrics denied`);
   }
+};
+
+export const checkEntitiesAccess = async (
+  entityRefs: string[],
+  credentials: BackstageCredentials,
+  permissions: PermissionsService,
+): Promise<string[]> => {
+  if (entityRefs.length === 0) return [];
+  const decisions = await permissions.authorize(
+    entityRefs.map(ref => ({
+      permission: catalogEntityReadPermission,
+      resourceRef: ref,
+    })),
+    { credentials },
+  );
+  return entityRefs.filter(
+    (_, i) => decisions[i].result === AuthorizeResult.ALLOW,
+  );
 };
 
 export const matches = (
