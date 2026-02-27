@@ -105,7 +105,6 @@ export type EntityMetricDetail = {
   metricValue: number | boolean | null;
   timestamp: string;
   status: 'success' | 'warning' | 'error';
-  score?: string;
 };
 
 /**
@@ -125,5 +124,6 @@ export type EntityMetricDetailResponse = {
     pageSize: number;
     total: number;
     totalPages: number;
+    isCapped: boolean;
   };
 };
